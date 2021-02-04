@@ -1,25 +1,33 @@
-# Tibbles
+# DataTable
 
 ## Introduction
 
-Throughout this book we work with "tibbles" instead of R's traditional `data.frame`. Tibbles _are_ data frames, but they tweak some older behaviours to make life a little easier. R is an old language, and some things that were useful 10 or 20 years ago now get in your way. It's difficult to change base R without breaking existing code, so most innovation occurs in packages. Here we will describe the __tibble__ package, which provides opinionated data frames that make working in the tidyverse a little easier. In most places, I'll use the term tibble and data frame interchangeably; when I want to draw particular attention to R's built-in data frame, I'll call them `data.frame`s. 
+Throughout this book we work with "DataTable" instead of Julia's `dataframe`. Just like the more popular DataFrames, DataTables _are_ data frames, we use DataTable in this book since it is the default table formet used in Queryverse. However, you are more than welcome to use DataFrame.jl , IndexedTable.jl, and TypedTables.jl as alternatives. In most places, I'll use the term DataTAble and data frame interchangeably; when I want to draw particular attention to other data packages, I'll call them their names. 
 
-If this chapter leaves you wanting to learn more about tibbles, you might enjoy `vignette("tibble")`.
+If this chapter leaves you wanting to learn more about DataTable, you might enjoy !(https://juliadata.github.io/DataTables.jl/stable/man/getting_started.html).
 
 ### Prerequisites
 
-In this chapter we'll explore the __tibble__ package, part of the core tidyverse.
+In this chapter we'll explore the __DataTables__ package, part of the core queryverse.
 
-```{r setup, message = FALSE}
-library(tidyverse)
+```{julia}
+# If you haven't install Queryverse and RDatasets
+#using Pkg
+#Pkg.add("Queryverse")
+#Pkg.add("Rdatasets")
+# or add Queryverse, RDatasets in Pkg mode
+
+# import queryverse
+using RDatasets, Queryverse
 ```
 
-## Creating tibbles
+## Creating DataTable
 
-Almost all of the functions that you'll use in this book produce tibbles, as tibbles are one of the unifying features of the tidyverse. Most other R packages use regular data frames, so you might want to coerce a data frame to a tibble. You can do that with `as_tibble()`:
+Almost all of the functions that you'll use in this book are based on DataTable as their data source, as DataTable are one of the unifying features of the queryverse. When importing data, you might want to convert data into a DataTable. You can do that with `DataTable()`:
 
-```{r}
-as_tibble(iris)
+```{julia}
+iris = dataset("datasets", "iris")
+dtiris = DataTable(iris)
 ```
 
 You can create a new tibble from individual vectors with `tibble()`. `tibble()` will automatically recycle inputs of length 1, and allows you to refer to variables that you just created, as shown below.
