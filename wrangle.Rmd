@@ -10,9 +10,9 @@ knitr::include_graphics("diagrams/data-science-wrangle.png")
 
 This part of the book proceeds as follows:
 
-*   In [DataTable], you'll learn about the variant of the data frame that we use
-    in this book: the __DataTable__.  You'll learn what makes them different
-    from regular data frames, and how you can construct them "by hand".
+*   In [dataframe], you'll learn about the variant of the data frame that we use
+    in this book: the __DataFrame__.  You'll learn how you can construct them "by hand"
+    and the functions for simple investigation of the data.
 
 *   In [data import], you'll learn how to get your data from disk and into R.
     We'll focus on plain-text rectangular formats, but will give you pointers 

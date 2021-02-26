@@ -1,0 +1,233 @@
+# DataFrame
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = FALSE)
+```
+
+## Introduction
+
+Throughout this book we work with Julia's "DataFrames.jl". Just like the other popular packages for tabular data, DataFrame _are_ data frames, we use DataFarmes.jl in this book since it provides fast and concise code for data manipulations on top of Queryverse. However, you are more than welcome to use JuliaDB.jl , DataTable.jl, and TypedTables.jl as alternatives. Queryverse is designed to work with different packages. In most places, I'll use the term data frame for datasets; when I want to draw particular attention to other data packages, I'll call them their names. 
+
+If this chapter leaves you wanting to learn more about DataFrames, you might enjoy this [documentation](https://dataframes.juliadata.org/stable/man/getting_started/#Working-with-Data-Frames).
+
+### Prerequisites
+
+In this chapter we'll explore the __DataFrames__ package, a most common package for data manipulations.
+
+```{julia, cache = FALSE}
+# If you haven't install Queryverse and RDatasets
+#using Pkg
+#Pkg.add("Queryverse")
+# or add Queryverse in Pkg mode
+
+# import Queryverse
+using Queryverse, DataFrames
+```
+## Creating DataFrames
+Almost all of the functions that you'll use in this book are based on DataFrame as their data source, as Dataframe is one of the data formats that works in queryverse's methodology. When importing data, you might want to convert data into an DataFrame. You can do that with `readtable()`:
+```{julia, cache = FALSE}
+flights = load(download("https://raw.githubusercontent.com/estadistika/assets/master/data/nycflights13.csv","data-raw/flights.csv")) |> DataFrame;
+```
+You can create a new DataFrame from individual vectors with `DataFrame()`.
+
+Here is a prefect example of the feature of Julia. Julia employs [multiple dispatch](https://en.wikipedia.org/wiki/Multiple_dispatch) in its core design.
+This implremntation of polymorphism allows Julia function to run with augments with different datatype. 
+
+### Using tuple of columns
+(Here we converted `1:5` an UnitRange into an array of Int64 using `collect()`.   
+`vcat()` is another function you could use to convect range to array.)
+```{julia}
+tuple_of_columns = (list_of_string = ["Apple", "Banana", "Orange", "Pineapple", "Dragonfruit"],
+                    number_range   = 1:5, 
+                    repeated_no    = fill(1, 5),
+                    collect_range  = collect(1:5) .^2 .+ 1,
+                    cat_range      = vcat(1:5) .^2 .+ 1);
+
+DataFrame(tuple_of_columns)
+```
+
+### Using columns as Arguments
+```{julia}
+DataFrame(
+  list_of_string = ["Apple", "Banana", "Orange", "Pineapple", "Dragonfruit"],
+  number_range   = 1:5, 
+  repeated_no    = fill(1, 5),
+  collect_range  = collect(1:5) .^2 .+ 1,
+  cat_range      = vcat(1:5) .^2 .+ 1,
+)
+```
+
+### Using a vector of columns
+(The `:` in front of a variable/function makes it an symbol, which suppresses the evaluation of the call.)
+```{julia}
+col_names = [:list_of_string, :number_range, :α, :β, :ϵ];
+DataFrame(
+    [["Apple", "Banana", "Orange", "Pineapple", "Dragonfruit"],
+    vcat(1:5), 
+    fill(1, 5),
+    collect(1:5) .^2 .+ 1,
+    vcat(1:5) .^2 .+ 1], 
+    col_names)
+```
+## Working with DataFrame
+To access data in a DataFrame, there are a fews different built-in syntaxes we can use to investigate our data.
+
+### Structure and dimension
+When you are working with a DataFrame object, a few things you might be interested in are the dimension and columns 
+of it.
+```{julia}
+# dimension of a DataFrame
+size(flights)
+
+# number of observations/rows
+print("Row = ", nrow(flights))
+
+# number of variables/columns
+print("Column = ", ncol(flights))
+
+# Colunme names of the DataFrame
+names(flights)
+```
+We can also look the a little subset of the data to get a basic idea.
+```{julia}
+# Select and show 6 observations
+head(flights)
+first(flights, 6)
+
+# Select and show last 6 observations
+tail(flights)
+last(flights, 6)
+```
+
+If you want a more detailed understanding the of dataset, `describe()` gives you a full description of of each columns.
+
+```{julia}
+include("scripts/packages.jl");
+showall(describe(flights))
+```
+When a variable/column is numeric (for example `air_time`), the functions provides you with the mean, median, min, max, and number of missing value in that column.
+When it is categorical (for example `origin`), you will see instead the number of unique value and missing value.  
+
+### select rows and columns
+DataFrame follows a simple syntax when it comes to selecting rows.
+The syntax is nothing but `df[x,y]` where `df` is the datafrme, `x` is the row index and `y` is the column.
+when selecting all row or columns, you are use `:` as a keyword for all.
+```{julia}
+using Queryverse
+# select row using index
+# select all columns for row with index = row_index
+row_index = 12;
+flights[row_index, :] 
+
+# select all columns for row with index = 20
+flights[20, :] 
+```
+When selecting a set of rows, and we use `:` to create a unit range.
+```{julia}
+# select all columns for row with index between 1 and 10
+flights[1:10,:] 
+
+# select all columns for row with index from 336000 to the end of the DataFrame
+flights[336000:end,:]
+```
+
+When selecting columns, you can choose to use the poistion or the name of the columns for `y`.
+```{julia}
+# select all row and the column at position 2 (returns an array object) 
+flights[:, 2]
+
+# select all row and the column year (returns an array object)
+# use : to create a symbol object in :year
+flights[:,:year]
+
+# select all row and the column year (returns an DataFrame object)
+flights[:, [:year]]
+```
+When selecting a set of columns, and we use `:` to create a unit range.
+```{julia}
+# select all row and the columns from position 2 to 4
+flights[:,2:4]
+
+# select all row and the columns year, month, and day
+flights[:, [:year, :month, :day]]
+
+# select all row and the columns with the string "dep" in its name.
+# r"" is the presentation of regular expression in julia
+flights[:, r"dep"]
+
+# select all row and the columns without the string "dep" in its name.
+flights[:, Not(r"dep")]
+
+```
+
+### `:` vs `!`
+When `:` is used by itself in `[]`, it is referring to all rows/columns. The same could be said about `!`. 
+However, there is a major difference between the usage of the two symbols.
+`:`, when used inside `[]` creates a copy of the data while `!` create a only the view of the data.   
+That means `:` will require memory allocation for this copy, and `!` is only providing the reference to the data.
+We can observe this difference by the spend and memory for each symbol. 
+  
+#### Performance
+  
+```{julia}
+include("scripts/packages.jl");
+# When we call the data
+@time flights[:,:]
+@time flights[!,:]
+```
+As we see above, using `!` requires less memory,allocation, and time.  
+Note that in this case, this first `!` already imply this will be a reference to `flights`. 
+In fact, flights[!,!] will not run, neither will flights[:,!].
+Also, The above code is only used as an example to show the difference between `!` and `:`.
+When referring to the whole DataFrame, `flights` is far better than any of the methods above as we will see here.
+
+```{julia}
+# the best way to refer to the whole dataset
+@time flights
+```
+#### Reference vs Value
+If `!` is proved to be faster and takes less memory, why are we even considering `:` in the first place? Another major
+difference between `!` and `:` is shown below:
+```{julia}
+include("scripts/packages.jl");
+# Creating a reference with `!` and a copy by `:`
+copy = flights[:,:year];
+reference = flights[!,:year];
+
+# Comparing the values
+flights[1,:year]
+flights[1,:year] == reference[1]
+flights[1,:year] == copy[1]
+
+# Changing the value in flights to 2014
+flights[1,:year] = 2014       
+flights[1,:year] == reference[1]
+flights[1,:year] == copy[1]
+
+# Changing the value in flights back to 2013
+reference[1] = 2013       
+flights[1,:year] == reference[1]
+flights[1,:year] == copy[1]
+
+```
+We can see that the comparison `flights[1,:year] == copy[1]` is no longer true after `flights[1,:year] = 2014`.
+When the value in `flights` was change, `copy` was a standalone DateFrame, 
+and `reference` serves as a pointer to the original value in `flights`. That is why `copy` still holds the value `2013`, and `reference` points to the new value instead.
+That makes `:` a necessity in certain cases,
+especially when we need to make a subset of the original DataFrame without changing its values.
+
+#### `==` vs `===`
+This one is an interesting comparison and though I have not fully grasp it, I will make a note here:
+
+```{julia}
+flights[!, :year] == reference
+flights[:, :year] == copy
+
+flights[!, :year] === reference
+flights[:, :year] === copy
+
+```
+
+`===` is used to identify if objects are programmatically indistinguishable. And since `!` 
+does not allocate memory of a copy and serves more as a reference, every references are programmatically indistinguishable.
+However, ":" requires memory for copying the data, every copy is unique and requires different allocation of data.

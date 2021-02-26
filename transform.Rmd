@@ -1,58 +1,52 @@
 # Data transformation {#transform}
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = FALSE)
+```
+
 ## Introduction
 
-Visualisation is an important tool for insight generation, but it is rare that you get the data in exactly the right form you need. Often you'll need to create some new variables or summaries, or maybe you just want to rename the variables or reorder the observations in order to make the data a little easier to work with. You'll learn how to do all that (and more!) in this chapter, which will teach you how to transform your data using the dplyr package and a new dataset on flights departing New York City in 2013.
+Visualisation is an important tool for insight generation, but it is rare that you get the data in exactly the right form you need. Often you'll need to create some new variables or summaries, or maybe you just want to rename the variables or reorder the observations in order to make the data a little easier to work with. You'll learn how to do all that (and more!) in this chapter, which will teach you how to transform your data using the Query package and a new dataset on flights departing New York City in 2013.
 
 ### Prerequisites
 
-In this chapter we're going to focus on how to use the dplyr package, another core member of the tidyverse. We'll illustrate the key ideas using data from the nycflights13 package, and use ggplot2 to help us understand the data. 
+In this chapter we're going to focus on how to use the Query package, a important package of the Queryverse methodology. We'll illustrate the key ideas using data from the nycflights13 package in R, and use Gadfly to help us understand the data. 
 
-```{r setup, message = FALSE}
-library(nycflights13)
-library(tidyverse)
+```{julia}
+using Queryverse,CSV
+
+flights_url = "https://github.com/byuidatascience/data4python4ds/raw/master/data-raw/flights/flights.csv"
+
+flights = CSV.read(download(flights_url), DataFrame)
 ```
 
-Take careful note of the conflicts message that's printed when you load the tidyverse. It tells you that dplyr overwrites some functions in base R. If you want to use the base version of these functions after loading dplyr, you'll need to use their full names: `stats::filter()` and `stats::lag()`.
 
 ### nycflights13
 
-To explore the basic data manipulation verbs of dplyr, we'll use `nycflights13::flights`. This data frame contains all `r format(nrow(nycflights13::flights), big.mark = ",")` flights that departed from New York City in 2013. The data comes from the US [Bureau of Transportation Statistics](http://www.transtats.bts.gov/DatabaseInfo.asp?DB_ID=120&Link=0), and is documented in `?flights`.
+To explore the basic data manipulation verbs of query, we'll call the name of the DataFrame `flights`. This data frame contains all 336,776 flights that departed from New York City in 2013. The data comes from the US [Bureau of Transportation Statistics](http://www.transtats.bts.gov/DatabaseInfo.asp?DB_ID=120&Link=0), and is documented in [flights](https://rdrr.io/cran/nycflights13/man/flights.html).
 
-```{r}
+```{julia}
 flights
 ```
 
-You might notice that this data frame prints a little differently from other data frames you might have used in the past: it only shows the first few rows and all the columns that fit on one screen. (To see the whole dataset, you can run `View(flights)` which will open the dataset in the RStudio viewer). It prints differently because it's a __tibble__. Tibbles are data frames, but slightly tweaked to work better in the tidyverse. For now, you don't need to worry about the differences; we'll come back to tibbles in more detail in [wrangle](#wrangle-intro).
- 
-You might also have noticed the row of three (or four) letter abbreviations under the column names. These describe the type of each variable:
+You might notice that this data frame prints a little differently from other data frames you might have used in the past: it only shows the first few rows and all the columns that fit on one screen.
 
-* `int` stands for integers.
+`describe()` will give us a summary of the data and we can look at all the datatype of the given data.
+```{julia}
+describe(flights)[[:variable, :eltype]]
 
-* `dbl` stands for doubles, or real numbers.
+# Or we can create arrary of pairs of column names and their data types.
+names(flights) .=> eltype.(eachcol(flights))
+```
+### Query basics
 
-* `chr` stands for character vectors, or strings.
+In this chapter you are going to learn the five key sets of functions( macros) that allow you to solve the vast majority of your data manipulation challenges.:
 
-* `dttm` stands for date-times (a date + a time).
-
-There are three other common types of variables that aren't used in this dataset but you'll encounter later in the book:
-
-* `lgl` stands for logical, vectors that contain only `TRUE` or `FALSE`.
-
-* `fctr` stands for factors, which R uses to represent categorical variables
-  with fixed possible values.
-
-* `date` stands for dates.
-
-### dplyr basics
-
-In this chapter you are going to learn the five key dplyr functions that allow you to solve the vast majority of your data manipulation challenges:
-
-* Pick observations by their values (`filter()`).
-* Reorder the rows (`arrange()`).
-* Pick variables by their names (`select()`).
-* Create new variables with functions of existing variables (`mutate()`).
-* Collapse many values down to a single summary (`summarise()`).
+* Pick observations by their values (`@filter()`).
+* Reorder the rows (`@orderby()`'s).
+* Pick variables by their names (`@select()`).
+* Create new variables with functions of existing variables (`@mutate()`).
+* Map function to grouped values or value(`@map()`).
 
 These can all be used in conjunction with `group_by()` which changes the scope of each function from operating on the entire dataset to operating on it group-by-group. These six functions provide the verbs for a language of data manipulation.
 
@@ -234,17 +228,6 @@ arrange(df, x)
 arrange(df, desc(x))
 ```
 
-### Exercises
-
-1.  How could you use `arrange()` to sort all missing values to the start?
-    (Hint: use `is.na()`).
-    
-1.  Sort `flights` to find the most delayed flights. Find the flights that
-    left earliest.
-
-1.  Sort `flights` to find the fastest (highest speed) flights.
-
-1.  Which flights travelled the farthest? Which travelled the shortest?
 
 ## Select columns with `select()` {#select}
 
@@ -289,27 +272,6 @@ Another option is to use `select()` in conjunction with the `everything()` helpe
 select(flights, time_hour, air_time, everything())
 ```
 
-### Exercises
-
-1.  Brainstorm as many ways as possible to select `dep_time`, `dep_delay`,
-    `arr_time`, and `arr_delay` from `flights`.
-    
-1.  What happens if you include the name of a variable multiple times in
-    a `select()` call?
-  
-1.  What does the `any_of()` function do? Why might it be helpful in conjunction
-    with this vector?
-    
-    ```{r}
-    vars <- c("year", "month", "day", "dep_delay", "arr_delay")
-    ```
-    
-1.  Does the result of running the following code surprise you?  How do the
-    select helpers deal with case by default? How can you change that default?
-
-    ```{r, eval = FALSE}
-    select(flights, contains("TIME"))
-    ```
 
 ## Add new variables with `mutate()`
 
@@ -437,38 +399,6 @@ There are many functions for creating new variables that you can use with `mutat
     cume_dist(y)
     ```
 
-### Exercises
-
-```{r, eval = FALSE, echo = FALSE}
-flights <- flights %>% mutate(
-  dep_time = hour * 60 + minute,
-  arr_time = (arr_time %/% 100) * 60 + (arr_time %% 100),
-  airtime2 = arr_time - dep_time,
-  dep_sched = dep_time + dep_delay
-)
-
-ggplot(flights, aes(dep_sched)) + geom_histogram(binwidth = 60)
-ggplot(flights, aes(dep_sched %% 60)) + geom_histogram(binwidth = 1)
-ggplot(flights, aes(air_time - airtime2)) + geom_histogram()
-```
-
-1.  Currently `dep_time` and `sched_dep_time` are convenient to look at, but
-    hard to compute with because they're not really continuous numbers. 
-    Convert them to a more convenient representation of number of minutes
-    since midnight.
-    
-1.  Compare `air_time` with `arr_time - dep_time`. What do you expect to see?
-    What do you see? What do you need to do to fix it?
-    
-1.  Compare `dep_time`, `sched_dep_time`, and `dep_delay`. How would you
-    expect those three numbers to be related?
-
-1.  Find the 10 most delayed flights using a ranking function. How do you want 
-    to handle ties? Carefully read the documentation for `min_rank()`.
-
-1.  What does `1:3 + 1:10` return? Why?
-
-1.  What trigonometric functions does R provide?
 
 ## Grouped summaries with `summarise()`
 
@@ -799,39 +729,6 @@ daily %>%
   summarise(flights = n())  # all flights
 ```
 
-### Exercises
-
-1.  Brainstorm at least 5 different ways to assess the typical delay 
-    characteristics of a group of flights. Consider the following scenarios:
-    
-    * A flight is 15 minutes early 50% of the time, and 15 minutes late 50% of 
-      the time.
-      
-    * A flight is always 10 minutes late.
-
-    * A flight is 30 minutes early 50% of the time, and 30 minutes late 50% of 
-      the time.
-      
-    * 99% of the time a flight is on time. 1% of the time it's 2 hours late.
-    
-    Which is more important: arrival delay or departure delay?
-
-1.  Come up with another approach that will give you the same output as 
-    `not_cancelled %>% count(dest)` and 
-    `not_cancelled %>% count(tailnum, wt = distance)` (without using 
-    `count()`).
-
-1.  Our definition of cancelled flights (`is.na(dep_delay) | is.na(arr_delay)`
-    ) is slightly suboptimal. Why? Which is the most important column?
-
-1.  Look at the number of cancelled flights per day. Is there a pattern?
-    Is the proportion of cancelled flights related to the average delay?
-
-1.  Which carrier has the worst delays? Challenge: can you disentangle the
-    effects of bad airports vs. bad carriers? Why/why not? (Hint: think about
-    `flights %>% group_by(carrier, dest) %>% summarise(n())`)
-
-1.  What does the `sort` argument to `count()` do. When might you use it?
 
 ## Grouped mutates (and filters)
 
@@ -867,31 +764,3 @@ A grouped filter is a grouped mutate followed by an ungrouped filter. I generall
 
 Functions that work most naturally in grouped mutates and filters are known as  window functions (vs. the summary functions used for summaries). You can learn more about useful window functions in the corresponding vignette: `vignette("window-functions")`.
 
-### Exercises
-
-1.  Refer back to the lists of useful mutate and filtering functions. 
-    Describe how each operation changes when you combine it with grouping.
-
-1.  Which plane (`tailnum`) has the worst on-time record?
-
-1.  What time of day should you fly if you want to avoid delays as much
-    as possible?
-    
-1.  For each destination, compute the total minutes of delay. For each 
-    flight, compute the proportion of the total delay for its destination.
-    
-1.  Delays are typically temporally correlated: even once the problem that
-    caused the initial delay has been resolved, later flights are delayed 
-    to allow earlier flights to leave. Using `lag()`, explore how the delay
-    of a flight is related to the delay of the immediately preceding flight.
-    
-1.  Look at each destination. Can you find flights that are suspiciously
-    fast? (i.e. flights that represent a potential data entry error). Compute
-    the air time of a flight relative to the shortest flight to that destination.
-    Which flights were most delayed in the air?
-    
-1.  Find all destinations that are flown by at least two carriers. Use that
-    information to rank the carriers.
-
-1.  For each plane, count the number of flights before the first delay 
-    of greater than 1 hour.

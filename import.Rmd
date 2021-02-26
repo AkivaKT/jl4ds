@@ -1,181 +1,146 @@
 # Data import
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = FALSE)
+```
+
 ## Introduction
 
-Working with data provided by R packages is a great way to learn the tools of data science, but at some point you want to stop learning and start working with your own data. In this chapter, you'll learn how to read plain-text rectangular files into R. Here, we'll only scratch the surface of data import, but many of the principles will translate to other forms of data. We'll finish with a few pointers to packages that are useful for other types of data.
+In this chapter, you'll learn how to read plain-text rectangular files into Julia. 
+ Here, we'll only scratch the surface of data import, 
+ but many of the principles will translate to other forms of data. 
+ We'll finish with a few pointers to packages that are useful for other types of data.
 
 ### Prerequisites
 
-In this chapter, you'll learn how to load flat files in R with the __readr__ package, which is part of the core tidyverse.
+In this chapter, you'll learn how to load flat files in Julia with a few different packages I called the "files" packages, which comes with Queryverse.  
+Here is a list of them:
 
-```{r setup, message = FALSE}
-library(tidyverse)
+* [CSVFiles.jl](https://github.com/queryverse/CSVFiles.jl)
+
+* [FeatherFile.jl](https://github.com/queryverse/FeatherFiles.jl)
+
+* [ExcelFiles.jl](https://github.com/queryverse/ExcelFiles.jl)  
+
+* [StatFiles.jl](https://github.com/queryverse/ParquetFiles.jl)  
+
+* [ParquetFiles.jl](https://github.com/queryverse/ParquetFiles.jl)   
+
+```{julia}
+# If you haven't install Queryverse
+#using Pkg
+#Pkg.add("Queryverse")
+# or add Queryverse in Pkg mode
+
+# import Queryverse
+using Queryverse, Dates, DataFrames, CSV
 ```
 
 ## Getting started
 
-Most of readr's functions are concerned with turning flat files into data frames:
+With R and Python, there are different functions for the vast majority of data formats. Some common ones are namely:
+read_csv() for csv files, read_fwf() for fixed width files. Here is another great example of how Julia utilitizes multiple dispatch
+to simplify code.  
+  
+With Julia, most data formats can be parsed and read with `load()`. The implementation of polymorphism allows Julia to parse the given
+files according to its format.  
+  
+No more remembering different function names and and package names, `load()` is what you need!
 
-* `read_csv()` reads comma delimited files, `read_csv2()` reads semicolon
-  separated files (common in countries where `,` is used as the decimal place),
-  `read_tsv()` reads tab delimited files, and `read_delim()` reads in files
-  with any delimiter.
-
-* `read_fwf()` reads fixed width files. You can specify fields either by their
-  widths with `fwf_widths()` or their position with `fwf_positions()`.
-  `read_table()` reads a common variation of fixed width files where columns
-  are separated by white space.
-
-* `read_log()` reads Apache style log files. (But also check out
-  [webreadr](https://github.com/Ironholds/webreadr) which is built on top
-  of `read_log()` and provides many more helpful tools.)
-
-These functions all have similar syntax: once you've mastered one, you can use the others with ease. For the rest of this chapter we'll focus on `read_csv()`. Not only are csv files one of the most common forms of data storage, but once you understand `read_csv()`, you can easily apply your knowledge to all the other functions in readr.
-
-The first argument to `read_csv()` is the most important: it's the path to the file to read.
-
-```{r, message = TRUE}
-heights <- read_csv("data/heights.csv")
+```{julia}
+heights = load("data/heights.csv") |> DataFrame
 ```
 
-When you run `read_csv()` it prints out a column specification that gives the name and type of each column. That's an important part of readr, which we'll come back to in [parsing a file].
+You can also supply an inline csv files. Instead of `load()` which takes in a file name, you can use a non-standard string to create tabular data.
+Along with other types of file format.
 
-You can also supply an inline csv file. This is useful for experimenting with readr and for creating reproducible examples to share with others:
+```{julia}
+using CSV;
 
-```{r}
-read_csv("a,b,c
-1,2,3
-4,5,6")
+data = CSV.read(IOBuffer("""a,b,c
+                            1,2,3
+                            4,5,6"""),
+                DataFrame)
+
+data = CSV.read(IOBuffer("""a;b;c
+                            1;2;3
+                            4;5;6"""),
+                DataFrame)
+
+# space-separated values
+data = CSV.read(IOBuffer("""a b c
+                            1 2 3
+                            4 5 6"""), 
+                DataFrame)
+
 ```
 
-In both cases `read_csv()` uses the first line of the data for the column names, which is a very common convention. There are two cases where you might want to tweak this behaviour:
 
-1.  Sometimes there are a few lines of metadata at the top of the file. You can
-    use `skip = n` to skip the first `n` lines; or use `comment = "#"` to drop
-    all lines that start with (e.g.) `#`.
-    
-    ```{r}
-    read_csv("The first line of metadata
-      The second line of metadata
-      x,y,z
-      1,2,3", skip = 2)
-    
-    read_csv("# A comment I want to skip
-      x,y,z
-      1,2,3", comment = "#")
-    ```
-    
-1.  The data might not have column names. You can use `col_names = FALSE` to
-    tell `read_csv()` not to treat the first row as headings, and instead
-    label them sequentially from `X1` to `Xn`:
-    
-    ```{r}
-    read_csv("1,2,3\n4,5,6", col_names = FALSE)
-    ```
-    
-    (`"\n"` is a convenient shortcut for adding a new line. You'll learn more
-    about it and other types of string escape in [string basics].)
-    
-    Alternatively you can pass `col_names` a character vector which will be
-    used as the column names:
-    
-    ```{r}
-    read_csv("1,2,3\n4,5,6", col_names = c("x", "y", "z"))
-    ```
-
-Another option that commonly needs tweaking is `na`: this specifies the value (or values) that are used to represent missing values in your file:
-
-```{r}
-read_csv("a,b,c\n1,2,.", na = ".")
-```
-
-This is all you need to know to read ~75% of CSV files that you'll encounter in practice. You can also easily adapt what you've learned to read tab separated files with `read_tsv()` and fixed width files with `read_fwf()`. To read in more challenging files, you'll need to learn more about how readr parses each column, turning them into R vectors.
-
-### Compared to base R
-
-If you've used R before, you might wonder why we're not using `read.csv()`. There are a few good reasons to favour readr functions over the base equivalents:
-
-* They are typically much faster (~10x) than their base equivalents.
-  Long running jobs have a progress bar, so you can see what's happening. 
-  If you're looking for raw speed, try `data.table::fread()`. It doesn't fit 
-  quite so well into the tidyverse, but it can be quite a bit faster.
-
-* They produce tibbles, they don't convert character vectors to factors,
-  use row names, or munge the column names. These are common sources of
-  frustration with the base R functions.
-
-* They are more reproducible. Base R functions inherit some behaviour from
-  your operating system and environment variables, so import code that works 
-  on your computer might not work on someone else's.
-
-### Exercises
-
-1.  What function would you use to read a file where fields were separated with  
-    "|"?
-    
-1.  Apart from `file`, `skip`, and `comment`, what other arguments do
-    `read_csv()` and `read_tsv()` have in common?
-    
-1.  What are the most important arguments to `read_fwf()`?
-   
-1.  Sometimes strings in a CSV file contain commas. To prevent them from
-    causing problems they need to be surrounded by a quoting character, like
-    `"` or `'`. By default, `read_csv()` assumes that the quoting
-    character will be `"`. What argument to `read_csv()` do you need to specify
-    to read the following text into a data frame?
-    
-    ```{r, eval = FALSE}
-    "x,y\n1,'a,b'"
-    ```
-    
-1.  Identify what is wrong with each of the following inline CSV files. 
-    What happens when you run the code?
-    
-    ```{r, eval = FALSE}
-    read_csv("a,b\n1,2,3\n4,5,6")
-    read_csv("a,b,c\n1,2\n1,2,3,4")
-    read_csv("a,b\n\"1")
-    read_csv("a,b\n1,2\na,b")
-    read_csv("a;b\n1;3")
-    ```
 
 ## Parsing a vector
 
-Before we get into the details of how readr reads files from disk, we need to take a little detour to talk about the `parse_*()` functions. These functions take a character vector and return a more specialised vector like a logical, integer, or date:
+Before we get into the details of how readr reads files from disk, 
+we need to take a little detour to talk about the `parse()` functions. 
+These functions take a character vector and return a more specialised vector like a logical, integer, or date:
 
-```{r}
-str(parse_logical(c("TRUE", "FALSE", "NA")))
-str(parse_integer(c("1", "2", "3")))
-str(parse_date(c("2010-01-01", "1979-10-14")))
+```{julia}
+parse.(Bool, ["true", "false"])
+parse.(Int, ["1", "2", "3"])
+parse.(Dates.Date, ["2010-01-01", "1979-10-14"])
 ```
 
-These functions are useful in their own right, but are also an important building block for readr. Once you've learned how the individual parsers work in this section, we'll circle back and see how they fit together to parse a complete file in the next section.
+These functions are useful in their own right, but are also an important building block. 
+Once you've learned how the individual parsers work in this section, 
+we'll circle back and see how they fit together to parse a complete file in the next section.
 
-Like all functions in the tidyverse, the `parse_*()` functions are uniform: the first argument is a character vector to parse, and the `na` argument specifies which strings should be treated as missing:
+The `parse()` function takes a Datatype as the first argument and parse the string given in the second parameter.
+```{julia}
+# Bool being a datatype
+typeof(Bool)
 
-```{r}
-parse_integer(c("1", "231", ".", "456"), na = ".")
+# Use tryparse to parse the string "true"
+parse(Bool, "true")
+
+# check the datatype of "true"
+parse(Bool, "true") |> typeof
+
 ```
 
-If parsing fails, you'll get a warning:
+### `parse()` vs `tryparse()`
 
-```{r}
-x <- parse_integer(c("123", "345", "abc", "123.45"))
+Both `parse()` and `tryparse()` works as a coverter for different datatypes. However, they react differently when they encounter
+unparseable strings. `parse()` will throw an error if the string is cannot be convected, while `tryparse()` will still run but
+return nothing, meaning nothing is convected in the case.
+```{julia}
+# nothing returns
+tryparse(Int, "1.2")
+```
+### vector conversion
+Knowing how to convert datatype for one string might not be as useful as knowing how to convert a vector of strings.
+Using the build in vectorization feature of Julia, we can run the following code.
+```{julia}
+# converting a string
+tryparse(Int, "1")
+
+# Adding a dot/period after a function to vectorize
+tryparse.(Int, ["1","2","3"])
+
+# The vectorized function also works with missing/wrong values
+tryparse.(Int, ["1","2","3", "", "not a number"])
 ```
 
-And the failures will be missing in the output:
+Instead of returning nothing, the vectorized `tryparse()` now return a value of nothing. For the sake of the out understanding, we can
+replace it with missing value.
 
-```{r}
-x
+```{julia}
+n_list = tryparse.(Int, ["1","2","3", "", "not a number"]);
+replace(n_list, nothing => missing)
+
 ```
 
-If there are many parsing failures, you'll need to use `problems()` to get the complete set. This returns a tibble, which you can then manipulate with dplyr.
 
-```{r}
-problems(x)
-```
-
-Using parsers is mostly a matter of understanding what's available and how they deal with different types of input. There are eight particularly important parsers:
+Using parsers is mostly a matter of understanding what's available and how they deal with different types of input. 
+There are eight particularly important parsers:
 
 1.  `parse_logical()` and `parse_integer()` parse logicals and integers
     respectively. There's basically nothing that can go wrong with these
@@ -212,75 +177,31 @@ It seems like it should be straightforward to parse a number, but three problems
 1. Numbers often contain "grouping" characters to make them easier to read, 
    like "1,000,000", and these grouping characters vary around the world.
 
-To address the first problem, readr has the notion of a "locale", an object that specifies parsing options that differ from place to place. When parsing numbers, the most important option is the character you use for the decimal mark. You can override the default value of `.` by creating a new locale and setting the `decimal_mark` argument:
-
-```{r}
-parse_double("1.23")
-parse_double("1,23", locale = locale(decimal_mark = ","))
+These problems could be solved by regular expressions along with `replace()`.  
+For example
+```{julia}
+replace.(["10%", "50%", "100%"], r"%" => "")
 ```
-
-readr's default locale is US-centric, because generally R is US-centric (i.e. the documentation of base R is written in American English). An alternative approach would be to try and guess the defaults from your operating system. This is hard to do well, and, more importantly, makes your code fragile: even if it works on your computer, it might fail when you email it to a colleague in another country.
-
-`parse_number()` addresses the second problem: it ignores non-numeric characters before and after the number. This is particularly useful for currencies and percentages, but also works to extract numbers embedded in text.
-
-```{r}
-parse_number("$100")
-parse_number("20%")
-parse_number("It cost $123.45")
-```
-
-The final problem is addressed by the combination of `parse_number()` and the locale as `parse_number()` will ignore the "grouping mark":
-
-```{r}
-# Used in America
-parse_number("$123,456,789")
-
-# Used in many parts of Europe
-parse_number("123.456.789", locale = locale(grouping_mark = "."))
-
-# Used in Switzerland
-parse_number("123'456'789", locale = locale(grouping_mark = "'"))
-```
-
 ### Strings {#readr-strings}
 
-It seems like `parse_character()` should be really simple --- it could just return its input. Unfortunately life isn't so simple, as there are multiple ways to represent the same string. To understand what's going on, we need to dive into the details of how computers represent strings. In R, we can get at the underlying representation of a string using `charToRaw()`:
+It seems like `parse_character()` should be really simple --- it could just return its input. 
+Unfortunately life isn't so simple, as there are multiple ways to represent the same string. 
+To understand what's going on, we need to dive into the details of how computers represent strings. 
+In Julia, we can get at the underlying representation of a string using a b string:
 
-```{r}
-charToRaw("Hadley")
+```{julia}
+b"string"
+
+String(b"string")
 ```
 
 Each hexadecimal number represents a byte of information: `48` is H, `61` is a, and so on. The mapping from hexadecimal number to character is called the encoding, and in this case the encoding is called ASCII. ASCII does a great job of representing English characters, because it's the __American__ Standard Code for Information Interchange.
 
 Things get more complicated for languages other than English. In the early days of computing there were many competing standards for encoding non-English characters, and to correctly interpret a string you needed to know both the values and the encoding. For example, two common encodings are Latin1 (aka ISO-8859-1, used for Western European languages) and Latin2 (aka ISO-8859-2, used for Eastern European languages). In Latin1, the byte `b1` is "±", but in Latin2, it's "ą"! Fortunately, today there is one standard that is supported almost everywhere: UTF-8. UTF-8 can encode just about every character used by humans today, as well as many extra symbols (like emoji!).
 
-readr uses UTF-8 everywhere: it assumes your data is UTF-8 encoded when you read it, and always uses it when writing. This is a good default, but will fail for data produced by older systems that don't understand UTF-8. If this happens to you, your strings will look weird when you print them. Sometimes just one or two characters might be messed up; other times you'll get complete gibberish. For example:
+Julia uses UTF-8 everywhere: it assumes your data is UTF-8 encoded when you read it, and always uses it when writing. This is a good default, but will fail for data produced by older systems that don't understand UTF-8. If this happens to you, your strings will look weird when you print them. Sometimes just one or two characters might be messed up; other times you'll get complete gibberish.
 
-```{r}
-x1 <- "El Ni\xf1o was particularly bad this year"
-x2 <- "\x82\xb1\x82\xf1\x82\xc9\x82\xbf\x82\xcd"
-
-x1
-x2
-```
-
-To fix the problem you need to specify the encoding in `parse_character()`:
-
-```{r}
-parse_character(x1, locale = locale(encoding = "Latin1"))
-parse_character(x2, locale = locale(encoding = "Shift-JIS"))
-```
-
-How do you find the correct encoding? If you're lucky, it'll be included somewhere in the data documentation. Unfortunately, that's rarely the case, so readr provides  `guess_encoding()` to help you figure it out. It's not foolproof, and it works better when you have lots of text (unlike here), but it's a reasonable place to start. Expect to try a few different encodings before you find the right one.
-
-```{r}
-guess_encoding(charToRaw(x1))
-guess_encoding(charToRaw(x2))
-```
-
-The first argument to `guess_encoding()` can either be a path to a file, or, as in this case, a raw vector (useful if the strings are already in R).
-
-Encodings are a rich and complex topic, and I've only scratched the surface here. If you'd like to learn more I'd recommend reading the detailed explanation at <http://kunststube.net/encoding/>.
+To fix the problem you need to the package [StringEncodings](https://github.com/JuliaStrings/StringEncodings.jl)
 
 ### Factors {#readr-factors}
 
@@ -376,41 +297,6 @@ If you're using `%b` or `%B` with non-English month names, you'll need to set th
 ```{r}
 parse_date("1 janvier 2015", "%d %B %Y", locale = locale("fr"))
 ```
-
-### Exercises
-
-1.  What are the most important arguments to `locale()`? 
-
-1.  What happens if you try and set `decimal_mark` and `grouping_mark` 
-    to the same character? What happens to the default value of 
-    `grouping_mark` when you set `decimal_mark` to ","? What happens
-    to the default value of `decimal_mark` when you set the `grouping_mark`
-    to "."?
-
-1.  I didn't discuss the `date_format` and `time_format` options to
-    `locale()`. What do they do? Construct an example that shows when 
-    they might be useful.
-
-1.  If you live outside the US, create a new locale object that encapsulates 
-    the settings for the types of file you read most commonly.
-    
-1.  What's the difference between `read_csv()` and `read_csv2()`?
-    
-1.  What are the most common encodings used in Europe? What are the
-    most common encodings used in Asia? Do some googling to find out.
-
-1.  Generate the correct format string to parse each of the following 
-    dates and times:
-    
-    ```{r}
-    d1 <- "January 1, 2010"
-    d2 <- "2015-Mar-07"
-    d3 <- "06-Jun-2017"
-    d4 <- c("August 19 (2015)", "July 1 (2015)")
-    d5 <- "12/30/14" # Dec 30, 2014
-    t1 <- "1705"
-    t2 <- "11:15:10.12 PM"
-    ```
 
 ## Parsing a file
 
@@ -632,3 +518,8 @@ To get other types of data into R, we recommend starting with the tidyverse pack
 For hierarchical data: use __jsonlite__ (by Jeroen Ooms) for json, and __xml2__ for XML. Jenny Bryan has some excellent worked examples at <https://jennybc.github.io/purrr-tutorial/>.
 
 For other file types, try the [R data import/export manual](https://cran.r-project.org/doc/manuals/r-release/R-data.html) and the [__rio__](https://github.com/leeper/rio) package.
+
+
+## Completing with R and Python
+Using multithreading, Julia outperforms python in reading data and is as fast as R's fread.
+Here an [article](https://towardsdatascience.com/the-great-csv-showdown-julia-vs-python-vs-r-aa77376fb96).
